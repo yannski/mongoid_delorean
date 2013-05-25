@@ -7,6 +7,7 @@ module Mongoid
         klass.field :version, type: Integer, default: 0
         klass.before_save :save_version
         klass.send(:include, Mongoid::Delorean::Trackable::CommonInstanceMethods)
+        klass.send(:attr_accessor, :originator, :reason, :is_published)
       end
 
       def versions
@@ -23,7 +24,7 @@ module Mongoid
           _changes = self.changes_with_relations.dup
           _changes.merge!("version" => [self.version_was, _version])
 
-          Mongoid::Delorean::History.create(original_class: self.class.name, original_class_id: self.id, version: _version, altered_attributes: _changes, full_attributes: _attributes).inspect
+          Mongoid::Delorean::History.create(original_class: self.class.name, original_class_id: self.id, version: _version, altered_attributes: _changes, full_attributes: _attributes, originator: self.originator, reason: self.reason, is_published: self.is_published).inspect
           self.without_history_tracking do
             self.version = _version
             self.save!
@@ -52,7 +53,7 @@ module Mongoid
       end
 
       module CommonEmbeddedMethods
-        
+
         def save_version
           self._parent.save_version if self._parent.respond_to?(:save_version)
         end
@@ -85,7 +86,7 @@ module Mongoid
 
         def attributes_with_relations
           _attributes = self.attributes.dup
-          
+
           relation_attrs = {}
           self.embedded_relations.each do |name, details|
             relation = self.send(name)
